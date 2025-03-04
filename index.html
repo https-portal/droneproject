@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Image Viewer</title>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getDatabase, ref, get, onChildAdded } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+
+        const firebaseConfig = { 
+            apiKey: "AIzaSyDKHYnJHgYtT6_hlgbAd7S6ZmO7RSFiNOY",
+            authDomain: "drone-3cfb8.firebaseapp.com",
+            databaseURL: "https://drone-3cfb8-default-rtdb.firebaseio.com",
+            projectId: "drone-3cfb8",
+            storageBucket: "drone-3cfb8.appspot.com",
+            messagingSenderId: "276183216262",
+            appId: "1:276183216262:web:6bd2be7dbc51d7875da107",
+            measurementId: "G-1J9W71ZKGK"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        function getCurrentDate() {
+            return new Date().toISOString().split('T')[0];
+        }
+
+        function fetchImages(date) {
+            const imageContainer = document.getElementById('imageContainer');
+            const loadingIndicator = document.getElementById('loading');
+            const errorText = document.getElementById('error');
+
+            errorText.innerText = '';
+            imageContainer.innerHTML = '';
+            loadingIndicator.style.display = 'flex';
+
+            const dbRef = ref(db, `images/${date}`);
+
+            get(dbRef).then((snapshot) => {
+                loadingIndicator.style.display = 'none';
+
+                if (!snapshot.exists()) {
+                    imageContainer.innerHTML = '<p class="no-images">No images found for this date.</p>';
+                    return;
+                }
+
+                snapshot.forEach((childSnapshot) => {
+                    displayImage(childSnapshot.val());
+                });
+            }).catch((error) => {
+                loadingIndicator.style.display = 'none';
+                errorText.innerText = "Error fetching images: " + error.message;
+            });
+        }
+
+        function displayImage(imageData) {
+            if (!imageData.startsWith("data:image")) {
+                imageData = `data:image/jpeg;base64,${imageData}`;
+            }
+
+            const imgWrapper = document.createElement('div');
+            imgWrapper.classList.add("image-wrapper");
+            
+            const imgElement = document.createElement('img');
+            imgElement.src = imageData;
+            imgElement.classList.add("fade-in");
+            imgElement.onclick = () => openModal(imageData);
+
+            const downloadLink = document.createElement('a');
+            downloadLink.href = imageData;
+            downloadLink.download = "image.jpg";
+            downloadLink.innerText = "Download";
+            downloadLink.classList.add("download-btn");
+
+            imgWrapper.appendChild(imgElement);
+            imgWrapper.appendChild(downloadLink);
+            document.getElementById('imageContainer').appendChild(imgWrapper);
+        }
+
+        function listenForNewImages(date) {
+            const dbRef = ref(db, `images/${date}`);
+
+            onChildAdded(dbRef, (snapshot) => {
+                displayImage(snapshot.val());
+            });
+        }
+
+        function openModal(imageSrc) {
+            const modal = document.getElementById("imageModal");
+            const modalImg = document.getElementById("modalImage");
+            modal.style.display = "block";
+            modalImg.src = imageSrc;
+        }
+
+        function closeModal() {
+            document.getElementById("imageModal").style.display = "none";
+        }
+
+        window.fetchImages = () => {
+            const date = document.getElementById('datePicker').value;
+            if (!date) {
+                alert("Please select a date.");
+                return;
+            }
+            fetchImages(date);
+            listenForNewImages(date);
+        };
+
+        window.fetchCurrentImage = () => {
+            const today = getCurrentDate();
+            fetchImages(today);
+            listenForNewImages(today);
+        };
+
+        window.closeModal = closeModal;
+    </script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background: #121212; color: #f4f4f4; }
+        h2 { margin-bottom: 20px; }
+        input, button { padding: 10px; font-size: 16px; border-radius: 5px; border: none; }
+        button { background: #007bff; color: white; cursor: pointer; transition: background 0.3s ease; margin: 5px; }
+        button:hover { background: #0056b3; }
+        #imageContainer { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-top: 20px; }
+        .image-wrapper { display: flex; flex-direction: column; align-items: center; }
+        img { width: 200px; border-radius: 10px; cursor: pointer; transition: transform 0.3s ease; }
+        img:hover { transform: scale(1.1); }
+        .download-btn { margin-top: 5px; padding: 5px 10px; background: #28a745; color: white; text-decoration: none; border-radius: 5px; }
+        .download-btn:hover { background: #218838; }
+        #loading { display: none; font-size: 18px; color: white; background: blue; padding: 10px; border-radius: 5px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; }
+        .modal-content { max-width: 80%; max-height: 80%; }
+        .close { position: absolute; top: 20px; right: 30px; font-size: 30px; color: white; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h2>Select Date to View Images</h2>
+    <input type="date" id="datePicker">
+    <button onclick="fetchImages()">Get Images</button>
+    <button onclick="fetchCurrentImage()">Current</button>
+    <p id="loading">Loading images...</p>
+    <p id="error"></p>
+    <div id="imageContainer"></div>
+    <div id="imageModal" class="modal" onclick="closeModal()">
+        <span class="close">&times;</span>
+        <img id="modalImage" class="modal-content">
+    </div>
+</body>
+</html>
