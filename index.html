@@ -35,7 +35,7 @@ const firebaseConfig = {
             imageContainer.innerHTML = '';
             loadingIndicator.style.display = 'flex';
 
-            const dbRef = ref(db, `images/${date}`);
+            const dbRef = ref(db, `/${date}`);
 
             get(dbRef).then((snapshot) => {
                 loadingIndicator.style.display = 'none';
